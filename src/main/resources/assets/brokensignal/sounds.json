@@ -1,0 +1,26 @@
+{
+  "whisper": {
+    "sounds": [
+      "brokensignal:whisper"
+    ],
+    "subtitle": "subtitles.brokensignal.whisper"
+  },
+  "drone": {
+    "sounds": [
+      "brokensignal:drone"
+    ],
+    "subtitle": "subtitles.brokensignal.drone"
+  },
+  "knock": {
+    "sounds": [
+      "brokensignal:knock"
+    ],
+    "subtitle": "subtitles.brokensignal.knock"
+  },
+  "static_burst": {
+    "sounds": [
+      "brokensignal:static_burst"
+    ],
+    "subtitle": "subtitles.brokensignal.static_burst"
+  }
+}

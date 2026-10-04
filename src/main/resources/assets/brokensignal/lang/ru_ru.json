@@ -1,0 +1,8 @@
+{
+  "entity.brokensignal.watcher": "Наблюдатель",
+  "item.brokensignal.watcher_spawn_egg": "Яйцо призыва Наблюдателя",
+  "subtitles.brokensignal.whisper": "Кто-то шепчет",
+  "subtitles.brokensignal.drone": "Низкий гул",
+  "subtitles.brokensignal.knock": "Стук",
+  "subtitles.brokensignal.static_burst": "Помехи"
+}

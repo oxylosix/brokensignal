@@ -1,0 +1,8 @@
+{
+  "entity.brokensignal.watcher": "Watcher",
+  "item.brokensignal.watcher_spawn_egg": "Watcher Spawn Egg",
+  "subtitles.brokensignal.whisper": "Something whispers",
+  "subtitles.brokensignal.drone": "Low hum",
+  "subtitles.brokensignal.knock": "Knocking",
+  "subtitles.brokensignal.static_burst": "Static"
+}
