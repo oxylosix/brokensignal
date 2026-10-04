@@ -26,9 +26,11 @@ public class WatcherEntity extends Monster {
     private Mode mode = Mode.STALK;
     private int life;
     private int lookTicks;
-    private int lookLimit = 14;
+    private int lookLimit = 12;
     private int attackCd;
+    private int repath;
     private int maxLife = 20 * 120;
+    private double vanishDist = 8.0;
 
     public WatcherEntity(EntityType<? extends Monster> type, Level level) {
         super(type, level);
@@ -40,6 +42,7 @@ public class WatcherEntity extends Monster {
                 .add(Attributes.MOVEMENT_SPEED, 0.32)
                 .add(Attributes.ATTACK_DAMAGE, 6.0)
                 .add(Attributes.FOLLOW_RANGE, 64.0)
+                .add(Attributes.STEP_HEIGHT, 1.0)
                 .add(Attributes.KNOCKBACK_RESISTANCE, 1.0);
     }
 
@@ -50,6 +53,15 @@ public class WatcherEntity extends Monster {
 
     public void setLookLimit(int ticks) {
         this.lookLimit = ticks;
+    }
+
+    /** Distance at which a stalking watcher disappears if the player walks up to it. */
+    public void setVanishDistance(double dist) {
+        this.vanishDist = dist;
+    }
+
+    public void setMaxLife(int ticks) {
+        this.maxLife = ticks;
     }
 
     @Override
@@ -64,6 +76,11 @@ public class WatcherEntity extends Monster {
     @Override
     public boolean removeWhenFarAway(double distance) {
         return false;
+    }
+
+    /** Never despawn by vanilla rules (including Peaceful); lifetime is handled in tick(). */
+    @Override
+    public void checkDespawn() {
     }
 
     @Override
@@ -106,34 +123,40 @@ public class WatcherEntity extends Monster {
             } else if (lookTicks > 0) {
                 lookTicks--;
             }
-            if (lookTicks >= lookLimit || dist < 9.0) {
-                if (random.nextFloat() < 0.3F) {
+            if (lookTicks >= lookLimit || dist < vanishDist) {
+                if (random.nextFloat() < 0.35F) {
                     p.addEffect(new MobEffectInstance(MobEffects.DARKNESS, 80, 0, false, false));
                 }
                 vanish();
             }
         } else {
-            getNavigation().moveTo(p, 1.5);
+            if (--repath <= 0) {
+                getNavigation().moveTo(p, 1.15);
+                repath = 5;
+            }
             getLookControl().setLookAt(p, 30.0F, 30.0F);
             if (attackCd > 0) {
                 attackCd--;
             }
-            if (dist < 2.0 && Math.abs(p.getY() - getY()) < 2.5 && attackCd == 0 && !p.isCreative()) {
+            if (dist < 1.8 && Math.abs(p.getY() - getY()) < 2.5 && attackCd == 0
+                    && !p.isCreative() && !p.isSpectator()) {
                 doHurtTarget(p);
                 attackCd = 20;
             }
         }
     }
 
+    /** True if the player is looking roughly at the watcher (about 10 degrees) and can see it. */
     private boolean isLookedAtBy(Player p) {
         Vec3 view = p.getViewVector(1.0F).normalize();
-        Vec3 to = new Vec3(getX() - p.getX(), getEyeY() - p.getEyeY(), getZ() - p.getZ());
+        Vec3 to = new Vec3(getX() - p.getX(), getY() + getBbHeight() * 0.6 - p.getEyeY(), getZ() - p.getZ());
         double d = to.length();
         if (d < 0.001) {
             return true;
         }
         to = to.normalize();
-        return view.dot(to) > 1.0 - 0.025 / d && p.hasLineOfSight(this);
+        double cone = Math.max(0.94, 0.985 - 0.4 / d);
+        return view.dot(to) > cone && p.hasLineOfSight(this);
     }
 
     @Override

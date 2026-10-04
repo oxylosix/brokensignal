@@ -6,6 +6,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.DoubleSupplier;
+import java.util.function.Consumer;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -35,6 +37,7 @@ import net.minecraft.world.level.block.StandingSignBlock;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.entity.SignText;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.block.state.properties.RotationSegment;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -95,6 +98,14 @@ public final class HorrorEvents {
     }
 
     private HorrorEvents() {}
+
+    /** Keep horror progress after death / returning from the End. */
+    public static void onClone(PlayerEvent.Clone event) {
+        CompoundTag old = event.getOriginal().getPersistentData();
+        if (old.contains(KEY)) {
+            event.getEntity().getPersistentData().putInt(KEY, old.getInt(KEY));
+        }
+    }
 
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         STATES.remove(event.getEntity().getUUID());
@@ -203,34 +214,54 @@ public final class HorrorEvents {
         return arr[r.nextInt(arr.length)];
     }
 
+    /** Used by the automatic director. */
     public static boolean trigger(ServerPlayer p, String id) {
+        return run(p, id, false) == null;
+    }
+
+    /** Runs an event. Returns null on success, otherwise a short reason why it could not run. */
+    public static String run(ServerPlayer p, String id, boolean force) {
         ServerLevel lv = p.serverLevel();
         RandomSource r = p.getRandom();
         switch (id) {
             case "whisper" -> {
-                sound(p, ModRegistry.WHISPER.get(), behind(p, 2.5, 0.6), 0.7F, 0.9F + r.nextFloat() * 0.2F);
-                if (r.nextFloat() < 0.4F) {
+                sound(p, ModRegistry.WHISPER, behind(p, 2.0, 0.5), 1.0F, 0.9F + r.nextFloat() * 0.2F);
+                if (force || r.nextFloat() < 0.5F) {
                     p.displayClientMessage(Component.literal(pickS(r, WHISPERS))
                             .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC), true);
                 }
-                return true;
+                return null;
             }
             case "footsteps" -> {
-                int n = 5 + r.nextInt(4);
+                Vec3 look = p.getLookAngle();
+                final double base = Math.atan2(-look.z, -look.x) + (r.nextDouble() - 0.5) * 0.5;
+                final double ox = p.getX();
+                final double oz = p.getZ();
+                int n = 6 + r.nextInt(4);
                 for (int i = 0; i < n; i++) {
-                    final double d = Math.max(2.0, 11.0 - i * 1.3);
-                    later(p, 1 + i * 8, () -> {
-                        Vec3 v = behind(p, d, 0.15);
-                        BlockState below = lv.getBlockState(BlockPos.containing(v.x, p.getY() - 0.5, v.z));
+                    final double d = Math.max(1.8, 12.0 - i * 1.4);
+                    final boolean left = i % 2 == 0;
+                    later(p, 1 + i * 7, () -> {
+                        double side = left ? 0.25 : -0.25;
+                        double x = ox + Math.cos(base) * d + Math.cos(base + Math.PI / 2) * side;
+                        double z = oz + Math.sin(base) * d + Math.sin(base + Math.PI / 2) * side;
+                        BlockState below = lv.getBlockState(BlockPos.containing(x, p.getY() - 0.5, z));
                         SoundEvent step = below.isAir() ? SoundEvents.STONE_STEP : below.getSoundType().getStepSound();
-                        sound(p, step, new Vec3(v.x, p.getY(), v.z), 0.6F, 0.9F + r.nextFloat() * 0.1F);
+                        sound(p, step, new Vec3(x, p.getY(), z), 1.0F, 0.85F + r.nextFloat() * 0.1F);
                     });
                 }
-                return true;
+                // the steps stop right behind you... and then a whisper
+                later(p, 1 + n * 7 + 25, () -> sound(p, ModRegistry.WHISPER, behind(p, 1.2, 0.2), 0.8F, 0.8F));
+                return null;
             }
             case "knock" -> {
-                sound(p, ModRegistry.KNOCK.get(), behind(p, 4.0, 1.2), 0.9F, 1.0F);
-                return true;
+                BlockPos door = findOpenable(p, 16, true);
+                Vec3 at = door != null ? Vec3.atCenterOf(door) : behind(p, 4.0, 1.2);
+                sound(p, ModRegistry.KNOCK, at, 1.0F, 1.0F);
+                if (r.nextFloat() < 0.4F || force) {
+                    later(p, 50 + r.nextInt(40), () -> sound(p, ModRegistry.KNOCK, at, 1.0F, 0.85F));
+                }
+                return null;
             }
             case "chat" -> {
                 String msg = pickS(r, CHAT)
@@ -242,125 +273,126 @@ public final class HorrorEvents {
                         .append(Component.literal("??????").withStyle(ChatFormatting.OBFUSCATED))
                         .append("> ")
                         .append(Component.literal(msg)));
-                return true;
+                return null;
             }
             case "join" -> {
                 p.sendSystemMessage(Component.translatable("multiplayer.player.joined", FAKE).withStyle(ChatFormatting.YELLOW));
-                if (r.nextBoolean()) {
+                if (force || r.nextBoolean()) {
                     later(p, 60 + r.nextInt(100), () -> p.sendSystemMessage(Component.literal("<" + FAKE + "> " + pickS(r, JOIN_LINES))));
                 }
-                later(p, 400 + r.nextInt(800), () -> p.sendSystemMessage(
+                later(p, force ? 300 : 400 + r.nextInt(800), () -> p.sendSystemMessage(
                         Component.translatable("multiplayer.player.left", FAKE).withStyle(ChatFormatting.YELLOW)));
-                return true;
+                return null;
             }
             case "door" -> {
-                BlockPos c = p.blockPosition();
-                BlockPos found = null;
-                for (BlockPos bp : BlockPos.betweenClosed(c.offset(-12, -4, -12), c.offset(12, 4, 12))) {
-                    BlockState st = lv.getBlockState(bp);
-                    if (st.getBlock() instanceof DoorBlock && st.is(BlockTags.WOODEN_DOORS)
-                            && st.getValue(DoorBlock.HALF) == DoubleBlockHalf.LOWER) {
-                        found = bp.immutable();
-                        break;
-                    }
-                }
+                BlockPos found = findOpenable(p, 16, false);
                 if (found == null) {
-                    return false;
+                    return "no wooden door, trapdoor or fence gate within 16 blocks";
                 }
-                BlockState st = lv.getBlockState(found);
-                ((DoorBlock) st.getBlock()).setOpen(null, lv, st, found, !st.getValue(DoorBlock.OPEN));
-                return true;
+                toggle(lv, found);
+                if (r.nextFloat() < 0.5F || force) {
+                    later(p, 30 + r.nextInt(30), () -> toggle(lv, found));
+                }
+                return null;
             }
             case "drone" -> {
-                sound(p, ModRegistry.DRONE.get(), p.position().add(0, 1, 0), 0.8F, 0.8F + r.nextFloat() * 0.3F);
-                return true;
+                sound(p, ModRegistry.DRONE, p.position().add(0, 1, 0), 1.0F, 0.8F + r.nextFloat() * 0.3F);
+                return null;
             }
             case "watcher" -> {
-                return spawnWatcher(p, 22 + r.nextInt(18), WatcherEntity.Mode.STALK, 0.9) != null;
+                // far away, in front-ish so the player can actually notice it
+                return spawnWatcher(p, 20 + r.nextInt(14), WatcherEntity.Mode.STALK, () -> front(p, 1.1), force, null);
             }
             case "behind" -> {
-                WatcherEntity w = spawnWatcher(p, 5, WatcherEntity.Mode.STALK, 0.25);
-                if (w == null) {
-                    return false;
+                String err = spawnWatcher(p, 3.0, WatcherEntity.Mode.STALK, () -> back(p, 0.3), force, w -> {
+                    w.setLookLimit(2);
+                    w.setVanishDistance(1.0);
+                    w.setMaxLife(20 * 15);
+                });
+                if (err != null) {
+                    return err;
                 }
-                w.setLookLimit(3);
-                title(p, "ОБЕРНИСЬ", null);
-                return true;
+                sound(p, ModRegistry.WHISPER, behind(p, 1.5, 0.2), 1.0F, 0.7F);
+                later(p, 10, () -> title(p, "ОБЕРНИСЬ", null));
+                return null;
             }
             case "chase" -> {
-                WatcherEntity w = spawnWatcher(p, 20, WatcherEntity.Mode.CHASE, 0.5);
-                if (w == null) {
-                    return false;
+                String err = spawnWatcher(p, 18, WatcherEntity.Mode.CHASE, () -> back(p, 0.6), force, null);
+                if (err != null) {
+                    return err;
                 }
                 title(p, "БЕГИ", null);
-                sound(p, ModRegistry.DRONE.get(), p.position(), 1.0F, 0.6F);
-                return true;
+                sound(p, ModRegistry.DRONE, p.position(), 1.0F, 0.6F);
+                return null;
             }
             case "darkness" -> {
                 p.addEffect(new MobEffectInstance(MobEffects.DARKNESS, 220, 0, false, false));
-                sound(p, ModRegistry.STATIC_BURST.get(), p.position(), 0.6F, 0.7F);
+                sound(p, ModRegistry.STATIC_BURST, p.position(), 0.8F, 0.7F);
                 later(p, 30, () -> title(p, "", "ты не один"));
-                return true;
+                return null;
             }
             case "torches" -> {
                 if (!Config.WORLD_EDITS.get()) {
-                    return false;
+                    return "worldEdits is disabled in config";
                 }
                 BlockPos c = p.blockPosition();
                 List<BlockPos> list = new ArrayList<>();
-                for (BlockPos bp : BlockPos.betweenClosed(c.offset(-10, -4, -10), c.offset(10, 5, 10))) {
+                for (BlockPos bp : BlockPos.betweenClosed(c.offset(-16, -6, -16), c.offset(16, 8, 16))) {
                     if (isTorch(lv.getBlockState(bp))) {
                         list.add(bp.immutable());
                     }
                 }
                 if (list.isEmpty()) {
-                    return false;
+                    return "no torches within 16 blocks";
                 }
                 Collections.shuffle(list);
-                int n = Math.min(list.size(), 2 + r.nextInt(4));
+                int n = Math.min(list.size(), 2 + r.nextInt(5));
                 for (int i = 0; i < n; i++) {
                     final BlockPos bp = list.get(i);
                     later(p, 1 + i * 12, () -> {
                         if (isTorch(lv.getBlockState(bp))) {
                             lv.removeBlock(bp, false);
-                            lv.playSound(null, bp, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.4F, 1.6F);
+                            lv.playSound(null, bp, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.5F, 1.6F);
                             lv.sendParticles(ParticleTypes.SMOKE, bp.getX() + 0.5, bp.getY() + 0.6, bp.getZ() + 0.5,
-                                    6, 0.05, 0.05, 0.05, 0.01);
+                                    8, 0.05, 0.05, 0.05, 0.01);
                         }
                     });
                 }
-                return true;
+                return null;
             }
             case "pillar" -> {
                 if (!Config.WORLD_EDITS.get()) {
-                    return false;
+                    return "worldEdits is disabled in config";
                 }
-                double a = r.nextDouble() * Math.PI * 2.0;
-                int dist = 30 + r.nextInt(20);
-                int x = Mth.floor(p.getX() + Math.cos(a) * dist);
-                int z = Mth.floor(p.getZ() + Math.sin(a) * dist);
-                if (!lv.isLoaded(new BlockPos(x, p.getBlockY(), z))) {
-                    return false;
+                for (int tries = 0; tries < 10; tries++) {
+                    double a = front(p, 0.8);
+                    int dist = 16 + r.nextInt(14);
+                    int x = Mth.floor(p.getX() + Math.cos(a) * dist);
+                    int z = Mth.floor(p.getZ() + Math.sin(a) * dist);
+                    BlockPos pos = stand(lv, x + 0.5, z + 0.5, p.getBlockY(), 4);
+                    if (pos == null || !lv.getFluidState(pos.below()).isEmpty()) {
+                        continue;
+                    }
+                    for (int i = 0; i < 3; i++) {
+                        lv.setBlock(pos.above(i), Blocks.OBSIDIAN.defaultBlockState(), 3);
+                    }
+                    lv.setBlock(pos.above(3), Blocks.REDSTONE_TORCH.defaultBlockState(), 3);
+                    sound(p, ModRegistry.STATIC_BURST, Vec3.atCenterOf(pos), 1.0F, 0.6F);
+                    return null;
                 }
-                int y = lv.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-                BlockPos base = new BlockPos(x, y, z);
-                if (!lv.getFluidState(base.below()).isEmpty()) {
-                    return false;
-                }
-                for (int i = 0; i < 3; i++) {
-                    lv.setBlock(base.above(i), Blocks.OBSIDIAN.defaultBlockState(), 3);
-                }
-                lv.setBlock(base.above(3), Blocks.REDSTONE_TORCH.defaultBlockState(), 3);
-                return true;
+                return "no free spot for a pillar in front of you";
             }
             case "sign" -> {
                 if (!Config.WORLD_EDITS.get()) {
-                    return false;
+                    return "worldEdits is disabled in config";
                 }
-                Vec3 v = behind(p, 5.0, 0.5);
-                BlockPos pos = stand(lv, v.x, v.z, p.getBlockY());
+                BlockPos pos = null;
+                for (int tries = 0; tries < 10 && pos == null; tries++) {
+                    Vec3 v = behind(p, 3.0 + r.nextDouble() * 3.0, 0.7);
+                    pos = stand(lv, v.x, v.z, p.getBlockY(), 4);
+                }
                 if (pos == null) {
-                    return false;
+                    return "no free spot for a sign behind you";
                 }
                 float yaw = (float) (Mth.atan2(pos.getZ() + 0.5 - p.getZ(), pos.getX() + 0.5 - p.getX()) * (180.0 / Math.PI)) - 90.0F;
                 BlockState st = Blocks.OAK_SIGN.defaultBlockState()
@@ -373,52 +405,122 @@ public final class HorrorEvents {
                         text = text.setMessage(i, Component.literal(lines[i].replace("%name%", p.getName().getString())));
                     }
                     sign.setText(text, true);
+                    sign.setText(text, false);
+                    sign.setWaxed(true);
                     sign.setChanged();
                     lv.sendBlockUpdated(pos, st, st, 3);
                 }
-                return true;
+                sound(p, ModRegistry.KNOCK, Vec3.atCenterOf(pos), 0.7F, 1.3F);
+                return null;
             }
             default -> {
-                return false;
+                return "unknown event";
             }
         }
+    }
+
+    private static boolean isOpenable(BlockState st) {
+        if (st.getBlock() instanceof DoorBlock) {
+            return st.is(BlockTags.WOODEN_DOORS) && st.getValue(DoorBlock.HALF) == DoubleBlockHalf.LOWER;
+        }
+        return (st.is(BlockTags.WOODEN_TRAPDOORS) || st.is(BlockTags.FENCE_GATES))
+                && st.hasProperty(BlockStateProperties.OPEN);
+    }
+
+    /** Nearest wooden door / trapdoor / fence gate. doorsOnly limits the search to doors. */
+    private static BlockPos findOpenable(ServerPlayer p, int radius, boolean doorsOnly) {
+        ServerLevel lv = p.serverLevel();
+        BlockPos c = p.blockPosition();
+        BlockPos best = null;
+        double bestD = Double.MAX_VALUE;
+        for (BlockPos bp : BlockPos.betweenClosed(c.offset(-radius, -5, -radius), c.offset(radius, 5, radius))) {
+            BlockState st = lv.getBlockState(bp);
+            if (!isOpenable(st) || (doorsOnly && !(st.getBlock() instanceof DoorBlock))) {
+                continue;
+            }
+            double d = bp.distSqr(c);
+            if (d < bestD) {
+                bestD = d;
+                best = bp.immutable();
+            }
+        }
+        return best;
+    }
+
+    private static void toggle(ServerLevel lv, BlockPos pos) {
+        BlockState st = lv.getBlockState(pos);
+        if (!isOpenable(st)) {
+            return;
+        }
+        boolean open = !st.getValue(BlockStateProperties.OPEN);
+        if (st.getBlock() instanceof DoorBlock door) {
+            door.setOpen(null, lv, st, pos, open);
+            return;
+        }
+        lv.setBlock(pos, st.setValue(BlockStateProperties.OPEN, open), 10);
+        SoundEvent s = st.is(BlockTags.FENCE_GATES)
+                ? (open ? SoundEvents.FENCE_GATE_OPEN : SoundEvents.FENCE_GATE_CLOSE)
+                : (open ? SoundEvents.WOODEN_TRAPDOOR_OPEN : SoundEvents.WOODEN_TRAPDOOR_CLOSE);
+        lv.playSound(null, pos, s, SoundSource.BLOCKS, 1.0F, 0.9F);
     }
 
     private static boolean isTorch(BlockState st) {
         return st.is(Blocks.TORCH) || st.is(Blocks.WALL_TORCH) || st.is(Blocks.SOUL_TORCH) || st.is(Blocks.SOUL_WALL_TORCH);
     }
 
-    private static WatcherEntity spawnWatcher(ServerPlayer p, double dist, WatcherEntity.Mode mode, double spread) {
+    private static String spawnWatcher(ServerPlayer p, double dist, WatcherEntity.Mode mode, DoubleSupplier angle,
+            boolean force, Consumer<WatcherEntity> setup) {
         ServerLevel lv = p.serverLevel();
-        if (!lv.getEntitiesOfClass(WatcherEntity.class, p.getBoundingBox().inflate(160.0)).isEmpty()) {
-            return null;
+        List<WatcherEntity> existing = lv.getEntitiesOfClass(WatcherEntity.class, p.getBoundingBox().inflate(160.0));
+        if (!existing.isEmpty()) {
+            if (!force) {
+                return "a watcher is already nearby";
+            }
+            for (WatcherEntity old : existing) {
+                old.discard();
+            }
         }
-        for (int tries = 0; tries < 8; tries++) {
-            Vec3 v = behind(p, dist, spread);
-            BlockPos pos = stand(lv, v.x, v.z, p.getBlockY());
+        for (int tries = 0; tries < 16; tries++) {
+            double a = angle.getAsDouble();
+            double d = dist * (tries < 8 ? 1.0 : 0.7);
+            BlockPos pos = stand(lv, p.getX() + Math.cos(a) * d, p.getZ() + Math.sin(a) * d, p.getBlockY(), 8);
             if (pos == null) {
                 continue;
             }
             WatcherEntity w = ModRegistry.WATCHER.get().create(lv);
             if (w == null) {
-                return null;
+                return "could not create entity";
             }
             float yaw = (float) (Mth.atan2(p.getZ() - (pos.getZ() + 0.5), p.getX() - (pos.getX() + 0.5)) * (180.0 / Math.PI)) - 90.0F;
             w.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, yaw, 0.0F);
             w.setYHeadRot(yaw);
             w.setYBodyRot(yaw);
             w.setMode(mode);
+            if (setup != null) {
+                setup.accept(w);
+            }
             lv.addFreshEntity(w);
-            return w;
+            return null;
         }
-        return null;
+        return "no free spot to spawn the watcher";
+    }
+
+    /** Random angle (radians, world XZ) roughly in the player's view direction. */
+    private static double front(ServerPlayer p, double spread) {
+        Vec3 look = p.getLookAngle();
+        return Math.atan2(look.z, look.x) + (p.getRandom().nextDouble() - 0.5) * 2.0 * spread;
+    }
+
+    /** Random angle roughly behind the player. */
+    private static double back(ServerPlayer p, double spread) {
+        return front(p, spread) + Math.PI;
     }
 
     /** Finds a free 1x2 spot with solid ground near the given column. */
-    private static BlockPos stand(ServerLevel lv, double x, double z, int y0) {
+    private static BlockPos stand(ServerLevel lv, double x, double z, int y0, int maxDy) {
         int bx = Mth.floor(x);
         int bz = Mth.floor(z);
-        for (int dy = 0; dy <= 12; dy++) {
+        for (int dy = 0; dy <= maxDy; dy++) {
             for (int sign = 1; sign >= -1; sign -= 2) {
                 if (dy == 0 && sign == -1) {
                     continue;
@@ -445,10 +547,15 @@ public final class HorrorEvents {
         return new Vec3(p.getX() + Math.cos(a) * dist, p.getEyeY(), p.getZ() + Math.sin(a) * dist);
     }
 
+    private static void sound(ServerPlayer p, Holder<SoundEvent> holder, Vec3 v, float volume, float pitch) {
+        p.connection.send(new ClientboundSoundPacket(holder, SoundSource.HOSTILE, v.x, v.y, v.z, volume, pitch,
+                p.getRandom().nextLong()));
+    }
+
     /** Sound that only this player hears. */
     private static void sound(ServerPlayer p, SoundEvent event, Vec3 v, float volume, float pitch) {
         Holder<SoundEvent> holder = BuiltInRegistries.SOUND_EVENT.wrapAsHolder(event);
-        p.connection.send(new ClientboundSoundPacket(holder, SoundSource.AMBIENT, v.x, v.y, v.z, volume, pitch,
+        p.connection.send(new ClientboundSoundPacket(holder, SoundSource.HOSTILE, v.x, v.y, v.z, volume, pitch,
                 p.getRandom().nextLong()));
     }
 

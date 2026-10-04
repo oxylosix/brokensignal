@@ -21,6 +21,7 @@ public final class BrokenSignal {
 
         NeoForge.EVENT_BUS.addListener(HorrorEvents::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(HorrorEvents::onLogout);
+        NeoForge.EVENT_BUS.addListener(HorrorEvents::onClone);
         NeoForge.EVENT_BUS.addListener(SignalCommand::register);
     }
 

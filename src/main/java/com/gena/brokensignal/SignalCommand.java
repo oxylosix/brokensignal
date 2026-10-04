@@ -21,10 +21,13 @@ public final class SignalCommand {
                                 .executes(ctx -> {
                                     ServerPlayer p = ctx.getSource().getPlayerOrException();
                                     String id = StringArgumentType.getString(ctx, "event");
-                                    boolean ok = HorrorEvents.trigger(p, id);
-                                    ctx.getSource().sendSuccess(() -> Component.literal(
-                                            (ok ? "Event: " : "Could not run event: ") + id), false);
-                                    return ok ? 1 : 0;
+                                    String err = HorrorEvents.run(p, id, true);
+                                    if (err != null) {
+                                        ctx.getSource().sendFailure(Component.literal("Could not run " + id + ": " + err));
+                                        return 0;
+                                    }
+                                    ctx.getSource().sendSuccess(() -> Component.literal("Event: " + id), false);
+                                    return 1;
                                 })))
                 .then(Commands.literal("stage")
                         .executes(ctx -> {
