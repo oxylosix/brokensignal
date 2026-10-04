@@ -12,7 +12,7 @@ public final class Config {
             .comment("How often events happen (1.0 = normal, 2.0 = twice as often)")
             .defineInRange("intensity", 1.0, 0.1, 10.0);
     public static final ModConfigSpec.BooleanValue WORLD_EDITS = BUILDER
-            .comment("Allow events that change blocks (torches, pillars, signs)")
+            .comment("Allow events that change blocks (torches, pillars, signs, chests)")
             .define("worldEdits", true);
     public static final ModConfigSpec.IntValue GRACE_MINUTES = BUILDER
             .comment("Quiet minutes before the first event")
@@ -20,6 +20,13 @@ public final class Config {
     public static final ModConfigSpec.BooleanValue AFFECT_CREATIVE = BUILDER
             .comment("Run events for players in creative mode")
             .define("affectCreative", false);
+    public static final ModConfigSpec.BooleanValue COMPUTER_EVENTS = BUILDER
+            .comment("Meta events: window title, fake 'connection lost' screen, static, jumpscare, screenshots,",
+                    "messages with your PC user name and local time. Nothing leaves your computer.")
+            .define("computerEvents", true);
+    public static final ModConfigSpec.BooleanValue OPEN_FILES = BUILDER
+            .comment("Allow the 'note' event to open a text file (.minecraft/brokensignal/s1gnal.txt) in your text editor")
+            .define("openFiles", true);
 
     public static final ModConfigSpec SPEC = BUILDER.build();
 

@@ -3,7 +3,10 @@ package com.gena.brokensignal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.DoubleSupplier;
@@ -12,6 +15,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
@@ -30,10 +34,15 @@ import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.StandingSignBlock;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.entity.SignText;
 import net.minecraft.world.level.block.state.BlockState;
@@ -42,14 +51,42 @@ import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.block.state.properties.RotationSegment;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.event.ServerChatEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 /** Server-side "director": slowly escalating horror events per player. */
 public final class HorrorEvents {
     public static final List<String> EVENTS = List.of(
             "whisper", "footsteps", "knock", "chat", "door", "drone", "watcher", "join",
-            "torches", "pillar", "sign", "darkness", "behind", "chase");
+            "torches", "pillar", "sign", "darkness", "behind", "chase",
+            "creeper", "cave", "mimic", "turn", "shuffle", "gift", "wake",
+            "title", "static", "lost", "jumpscare", "user", "trace", "note", "screenshot");
+
+    /** Heavy events that happen at most once per session automatically. */
+    private static final Set<String> ONCE = Set.of("note", "screenshot", "lost", "trace", "jumpscare");
+
+    private static final String[] MIMIC = {
+            "помогите", "кто это пишет?", "это не я", "я вижу себя со стороны",
+            "не верь мне", "выпустите", "он стоит сзади меня"
+    };
+    private static final String[] REPLIES = {
+            "я здесь", "ты знаешь, кто я", "не зови меня", "ты не один, %name%",
+            "пиши ещё. я читаю", "никто тебе не ответит. кроме меня", "тише", "обернись"
+    };
+    private static final String[] DEATH = {"снова", "ещё раз", "я подожду", "ты вернёшься", "так даже лучше"};
+    private static final String[] TITLES = {
+            "Minecraft* 1.21.1 - s1gnal", "ОН ВИДИТ ТЕБЯ", "не закрывай игру",
+            "Minecraft* 1.21.1 - Сетевая игра (s1gnal)", "почему ты ещё здесь", "░░░░░░░░"
+    };
+    private static final String[] STATIC_LINES = {"СИГНАЛ ПОТЕРЯН", "Я ВИЖУ ТЕБЯ", "НЕ СМОТРИ", "ОН ЗДЕСЬ", "ТЫ НЕ ОДИН"};
+    private static final Item[] GIFT_ITEMS = {Items.ROTTEN_FLESH, Items.PAPER, Items.BONE, Items.POPPY, Items.COMPASS, Items.CLOCK};
+    private static final String[] GIFT_NAMES = {
+            "это твоё", "ты спал. я смотрел", "он был здесь до тебя",
+            "на память, %name%", "он показывает на меня", "у тебя мало времени"
+    };
 
     private static final String KEY = "brokensignal_ticks";
     private static final String FAKE = "s1gnal";
@@ -95,6 +132,7 @@ public final class HorrorEvents {
     private static final class State {
         int cooldown = 20 * 90;
         final List<Task> tasks = new ArrayList<>();
+        final Set<String> done = new HashSet<>();
     }
 
     private HorrorEvents() {}
@@ -142,6 +180,10 @@ public final class HorrorEvents {
         if (ticks < Config.GRACE_MINUTES.get() * 1200) {
             return;
         }
+        if (player.isSleeping() && player.getSleepTimer() == 40 && stage(player) >= 1
+                && player.getRandom().nextFloat() < 0.35F) {
+            trigger(player, "wake");
+        }
         if (--state.cooldown > 0) {
             return;
         }
@@ -150,7 +192,12 @@ public final class HorrorEvents {
         double k = Math.max(0.1, Config.INTENSITY.get()) * (1.0 + stage * 0.4);
         state.cooldown = Math.max(100, (int) ((20 * 60 + r.nextInt(20 * 150)) / k));
         for (int i = 0; i < 4; i++) {
-            if (trigger(player, pick(player, stage))) {
+            String id = pick(player, stage);
+            if (ONCE.contains(id) && state.done.contains(id)) {
+                continue;
+            }
+            if (trigger(player, id)) {
+                state.done.add(id);
                 break;
             }
         }
@@ -178,7 +225,18 @@ public final class HorrorEvents {
         add(pool, "chat", 3);
         add(pool, "door", 2);
         add(pool, "drone", 2);
+        add(pool, "cave", 2);
+        add(pool, "creeper", 1);
+        boolean meta = Config.COMPUTER_EVENTS.get();
         if (stage >= 1) {
+            add(pool, "mimic", 2);
+            add(pool, "turn", 2);
+            add(pool, "shuffle", 1);
+            if (meta) {
+                add(pool, "title", 2);
+                add(pool, "user", 1);
+                add(pool, "static", 1);
+            }
             add(pool, "watcher", 5);
             add(pool, "join", 2);
             add(pool, "torches", 2);
@@ -189,6 +247,18 @@ public final class HorrorEvents {
             add(pool, "darkness", 2);
             add(pool, "behind", 2);
             add(pool, "watcher", 2);
+            add(pool, "gift", 1);
+            if (meta) {
+                add(pool, "trace", 1);
+                add(pool, "note", 1);
+                add(pool, "lost", 1);
+                add(pool, "screenshot", 1);
+                add(pool, "user", 1);
+            }
+        }
+        if (stage >= 3 && meta) {
+            add(pool, "jumpscare", 1);
+            add(pool, "static", 1);
         }
         if (stage >= 3 && player.level().isNight()) {
             add(pool, "chase", 2);
@@ -413,9 +483,158 @@ public final class HorrorEvents {
                 sound(p, ModRegistry.KNOCK, Vec3.atCenterOf(pos), 0.7F, 1.3F);
                 return null;
             }
+            case "creeper" -> {
+                sound(p, SoundEvents.CREEPER_PRIMED, behind(p, 1.5, 0.3), 1.0F, 0.5F);
+                return null;
+            }
+            case "cave" -> {
+                sound(p, SoundEvents.AMBIENT_CAVE, behind(p, 6.0, 1.5), 1.0F, 0.8F + r.nextFloat() * 0.3F);
+                return null;
+            }
+            case "mimic" -> {
+                p.sendSystemMessage(Component.literal("<" + p.getName().getString() + "> " + pickS(r, MIMIC)));
+                return null;
+            }
+            case "turn" -> {
+                WatcherEntity[] ref = new WatcherEntity[1];
+                String err = spawnWatcher(p, 10, WatcherEntity.Mode.STALK, () -> back(p, 0.4), force, w -> {
+                    w.setLookLimit(14);
+                    w.setVanishDistance(3.0);
+                    w.setMaxLife(20 * 12);
+                    ref[0] = w;
+                });
+                if (err != null) {
+                    return err;
+                }
+                final WatcherEntity target = ref[0];
+                later(p, 20, () -> {
+                    if (target == null || target.isRemoved()) {
+                        return;
+                    }
+                    double dx = target.getX() - p.getX();
+                    double dz = target.getZ() - p.getZ();
+                    double dy = target.getEyeY() - p.getEyeY();
+                    float yaw = (float) (Mth.atan2(dz, dx) * (180.0 / Math.PI)) - 90.0F;
+                    float pitch = (float) (-Mth.atan2(dy, Math.sqrt(dx * dx + dz * dz)) * (180.0 / Math.PI));
+                    p.connection.teleport(p.getX(), p.getY(), p.getZ(), yaw, pitch);
+                    sound(p, ModRegistry.STATIC_BURST, target.position(), 0.7F, 0.5F);
+                });
+                return null;
+            }
+            case "shuffle" -> {
+                Inventory inv = p.getInventory();
+                List<Integer> filled = new ArrayList<>();
+                for (int i = 0; i < 9; i++) {
+                    if (!inv.getItem(i).isEmpty()) {
+                        filled.add(i);
+                    }
+                }
+                if (filled.size() < 2) {
+                    return "hotbar has fewer than 2 items";
+                }
+                Collections.shuffle(filled);
+                int a = filled.get(0);
+                int b = filled.get(1);
+                ItemStack tmp = inv.getItem(a);
+                inv.setItem(a, inv.getItem(b));
+                inv.setItem(b, tmp);
+                p.inventoryMenu.broadcastChanges();
+                sound(p, ModRegistry.WHISPER, behind(p, 1.0, 0.2), 0.7F, 1.2F);
+                return null;
+            }
+            case "gift" -> {
+                if (!Config.WORLD_EDITS.get()) {
+                    return "worldEdits is disabled in config";
+                }
+                BlockPos pos = null;
+                for (int tries = 0; tries < 10 && pos == null; tries++) {
+                    Vec3 v = behind(p, 3.0 + r.nextDouble() * 3.0, 0.7);
+                    pos = stand(lv, v.x, v.z, p.getBlockY(), 3);
+                }
+                if (pos == null) {
+                    return "no free spot for a chest behind you";
+                }
+                lv.setBlock(pos, Blocks.CHEST.defaultBlockState(), 3);
+                if (lv.getBlockEntity(pos) instanceof ChestBlockEntity chest) {
+                    int i = r.nextInt(GIFT_ITEMS.length);
+                    ItemStack stack = new ItemStack(GIFT_ITEMS[i]);
+                    stack.set(DataComponents.CUSTOM_NAME, Component.literal(
+                            GIFT_NAMES[i].replace("%name%", p.getName().getString())).withStyle(ChatFormatting.DARK_RED));
+                    chest.setItem(13, stack);
+                    chest.setChanged();
+                }
+                sound(p, ModRegistry.KNOCK, Vec3.atCenterOf(pos), 0.6F, 1.4F);
+                return null;
+            }
+            case "wake" -> {
+                if (!p.isSleeping()) {
+                    return "you are not sleeping";
+                }
+                p.stopSleepInBed(true, true);
+                sound(p, ModRegistry.KNOCK, behind(p, 3.0, 1.0), 1.0F, 0.9F);
+                title(p, "НЕ СПИ", null);
+                return null;
+            }
+            case "title" -> {
+                return meta(p, "title", pickS(r, TITLES));
+            }
+            case "static" -> {
+                return meta(p, "static", pickS(r, STATIC_LINES));
+            }
+            case "lost", "jumpscare", "user", "trace", "screenshot" -> {
+                return meta(p, id, "");
+            }
+            case "note" -> {
+                return meta(p, "note", p.getName().getString());
+            }
             default -> {
                 return "unknown event";
             }
+        }
+    }
+
+    private static String meta(ServerPlayer p, String action, String arg) {
+        if (!Config.COMPUTER_EVENTS.get()) {
+            return "computerEvents is disabled in config";
+        }
+        PacketDistributor.sendToPlayer(p, new MetaPayload(action, arg));
+        return null;
+    }
+
+    private static Component unknown(String text) {
+        return Component.literal("<")
+                .append(Component.literal("??????").withStyle(ChatFormatting.OBFUSCATED))
+                .append("> ")
+                .append(Component.literal(text));
+    }
+
+    /** Something answers when you talk in chat. */
+    public static void onChat(ServerChatEvent event) {
+        ServerPlayer p = event.getPlayer();
+        if (!Config.ENABLED.get() || p.isSpectator()) {
+            return;
+        }
+        String low = event.getRawText().toLowerCase(Locale.ROOT);
+        boolean called = low.contains("s1gnal") || low.contains("сигнал") || low.contains("кто ты")
+                || low.contains("кто здесь") || low.contains("кто тут") || low.contains("who are you");
+        RandomSource r = p.getRandom();
+        if (!called && (stage(p) < 1 || r.nextFloat() > 0.2F)) {
+            return;
+        }
+        p.server.execute(() -> later(p, 40 + r.nextInt(80), () -> {
+            String reply = r.nextFloat() < 0.25F
+                    ? new StringBuilder(low).reverse().toString()
+                    : pickS(r, REPLIES).replace("%name%", p.getName().getString());
+            p.sendSystemMessage(unknown(reply));
+        }));
+    }
+
+    public static void onDeath(LivingDeathEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer p) || !Config.ENABLED.get() || stage(p) < 1) {
+            return;
+        }
+        if (p.getRandom().nextFloat() < 0.6F) {
+            p.sendSystemMessage(unknown(pickS(p.getRandom(), DEATH)));
         }
     }
 
