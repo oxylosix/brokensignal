@@ -98,7 +98,7 @@ public final class ClientMeta {
                 int len = ticks(arg, 200);
                 for (int i = 0; i < len; i += 5) {
                     later(1 + i, () -> {
-                        mc.getSoundManager().stopAll();
+                        mc.getSoundManager().stop();
                         mc.getMusicManager().stopPlaying();
                     });
                 }

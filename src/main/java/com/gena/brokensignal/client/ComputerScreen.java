@@ -108,7 +108,7 @@ public class ComputerScreen extends Screen {
 
     private void click(float pitch) {
         if (minecraft != null && !data.getBoolean("sQuiet")) {
-            minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, pitch, 0.25F));
+            minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK.value(), pitch, 0.25F));
         }
     }
 
