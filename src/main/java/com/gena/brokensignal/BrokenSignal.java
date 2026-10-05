@@ -1,5 +1,8 @@
 package com.gena.brokensignal;
 
+import com.gena.brokensignal.pc.ComputerActionPayload;
+import com.gena.brokensignal.pc.ComputerService;
+import com.gena.brokensignal.pc.ComputerSyncPayload;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -27,12 +30,17 @@ public final class BrokenSignal {
         NeoForge.EVENT_BUS.addListener(HorrorEvents::onClone);
         NeoForge.EVENT_BUS.addListener(HorrorEvents::onChat);
         NeoForge.EVENT_BUS.addListener(HorrorEvents::onDeath);
+        NeoForge.EVENT_BUS.addListener(HorrorEvents::onLogin);
+        NeoForge.EVENT_BUS.addListener(HorrorEvents::onBreak);
+        NeoForge.EVENT_BUS.addListener(HorrorEvents::onPlace);
         NeoForge.EVENT_BUS.addListener(SignalCommand::register);
     }
 
     private static void onPayloads(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar("1");
         registrar.playToClient(MetaPayload.TYPE, MetaPayload.STREAM_CODEC, MetaPayload::handle);
+        registrar.playToClient(ComputerSyncPayload.TYPE, ComputerSyncPayload.STREAM_CODEC, ComputerSyncPayload::handle);
+        registrar.playToServer(ComputerActionPayload.TYPE, ComputerActionPayload.STREAM_CODEC, ComputerService::handle);
     }
 
     private static void onAttributes(EntityAttributeCreationEvent event) {
@@ -42,6 +50,8 @@ public final class BrokenSignal {
     private static void onCreativeTabs(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.SPAWN_EGGS) {
             event.accept(ModRegistry.WATCHER_EGG.get());
+        } else if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
+            event.accept(ModRegistry.COMPUTER_ITEM.get());
         }
     }
 }

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "brokensignal:block/computer_front_on",
+    "side": "brokensignal:block/computer_side",
+    "top": "brokensignal:block/computer_top"
+  }
+}
