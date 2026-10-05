@@ -543,7 +543,7 @@ public final class MimicDirector {
 
     private static Monster nearestMonster(ServerPlayer obs, double r) {
         List<Monster> ms = obs.level().getEntitiesOfClass(Monster.class, new AABB(obs.blockPosition()).inflate(r),
-                e -> e.isAlive() && !(e instanceof MimicEntity));
+                Monster::isAlive);
         Monster best = null;
         for (Monster e : ms) {
             if (best == null || e.distanceToSqr(obs) < best.distanceToSqr(obs)) {
