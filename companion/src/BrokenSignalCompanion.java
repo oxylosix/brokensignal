@@ -179,7 +179,7 @@ public final class BrokenSignalCompanion {
                 // rarely: while you are on the desktop, someone knocks. The game will have an open door.
                 if (R.nextFloat() < 0.12F) {
                     lastScene = now;
-                    Timer t = new Timer(4000 + R.nextInt(6000), e -> door());
+                    javax.swing.Timer t = new javax.swing.Timer(4000 + R.nextInt(6000), e -> door());
                     t.setRepeats(false);
                     t.start();
                 }
@@ -224,7 +224,7 @@ public final class BrokenSignalCompanion {
         w.setAlwaysOnTop(true);
         w.setVisible(true);
         knock(2);
-        Timer t = new Timer(4500, e -> w.dispose());
+        javax.swing.Timer t = new javax.swing.Timer(4500, e -> w.dispose());
         t.setRepeats(false);
         t.start();
     }
