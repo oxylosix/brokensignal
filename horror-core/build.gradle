@@ -1,0 +1,7 @@
+neoForge {
+    mods {
+        unquietcore {
+            sourceSet sourceSets.main
+        }
+    }
+}

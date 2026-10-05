@@ -1,0 +1,10 @@
+{
+  "event.theunquiet.distant_knock": "За стенами раздался звук.",
+  "event.theunquiet.footsteps_behind": "На миг послышались ещё одни шаги.",
+  "event.theunquiet.village_stillness": "Деревня затихла.",
+  "event.theunquiet.night_echo": "Из темноты кто-то ответил.",
+  "event.theunquiet.animal_watch": "Животное не сводит с вас глаз.",
+  "event.theunquiet.ash_in_air": "В воздухе проплыла тёмная пылинка.",
+  "command.theunquiet.status": "Мир помнит %s аномалий.",
+  "command.theunquiet.meta_disabled": "Внешние эффекты выключены. Включите их явно в клиентской конфигурации."
+}

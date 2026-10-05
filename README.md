@@ -1,36 +1,25 @@
-# Broken Signal — хоррор-мод для NeoForge 1.21.1
+# The Unquiet
 
-Оригинальный хоррор-мод в духе The Broken Script: свой монстр, свои тексты и звуки, без чужих ассетов.
+The Unquiet is a new, original slow-burn horror mod for Minecraft 1.21.1 and NeoForge. Its goal is to let ordinary survival play feel ordinary for long stretches, then make small, context-aware details accumulate into doubt.
 
-## Что делает мод
+The repository contains two installable mods:
 
-| Стадия | Когда | События |
-|---|---|---|
-| 0 | первые 15 мин (после 3 мин тишины) | шёпот за спиной, шаги сзади, стук, гул, жуткий чат, двери открываются сами |
-| 1 | 15–35 мин | **Наблюдатель** стоит вдали и смотрит, фейковый игрок `s1gnal` заходит на сервер, гаснут факелы, обсидиановые столбы |
-| 2 | 35–60 мин | красные таблички с надписями, тьма + «ты не один», «ОБЕРНИСЬ» — и он прямо сзади |
-| 3 | 60+ мин | ночью: «БЕГИ» — Наблюдатель охотится и бьёт |
+- **The Unquiet Horror Core** (`unquietcore`) — reusable event API, rarity model, saved player memory, and server tick hooks.
+- **The Unquiet** (`theunquiet`) — the game content and event director; it depends on Horror Core.
 
-**Наблюдатель** исчезает с помехами, если на него долго смотреть, подойти ближе 9 блоков или ударить. Убить его нельзя.
+Install both jars from the same build. The first playable foundation focuses on pacing, bounded player history, world-aware event selection, and a deliberately small event set. More event families and the consent-driven meta layer are developed on top of this API rather than being mixed into the old BrokenSignal code.
 
-## Команды (нужен OP / читы)
+## Safety defaults
 
-- `/brokensignal trigger <событие>` — whisper, footsteps, knock, chat, door, drone, watcher, join, torches, pillar, sign, darkness, behind, chase
-- `/brokensignal stage` — текущая стадия
-- `/brokensignal setminutes 70` — перемотать время (70 = стадия 3)
+External effects, personalized data, and extreme scenes default to **off** in a separate client config; Safe Mode defaults to **on**. No external effects are currently implemented. The mod does not inspect personal files, browser data, credentials, or other applications. Its current event set stays inside Minecraft.
 
-## Настройки
+## Build
 
-`config/brokensignal-common.toml`: `enabled`, `intensity`, `worldEdits`, `graceMinutes`, `affectCreative`.
+Requires JDK 21. Run `./gradlew build` on macOS/Linux or `gradlew.bat build` on Windows. GitHub Actions builds both mod jars and publishes them as `the-unquiet-mods`.
 
-## Сборка через GitHub (без Java на ПК)
+## Documentation
 
-1. Залей содержимое этой папки (вместе с `.github`) в новый репозиторий.
-2. Workflow `build` сам скачает официальный MDK NeoForge 1.21.1, подставит исходники и соберёт мод.
-3. Actions → последний запуск → Artifacts → `brokensignal-jar`.
-
-## Сборка локально
-
-1. JDK 21 + MDK: https://github.com/NeoForgeMDKs/MDK-1.21.1-ModDevGradle
-2. Замени `src` в MDK на `src` отсюда, строки `mod_*` в `gradle.properties` — на строки из `gradle.properties.mod`.
-3. `gradlew build` → `build/libs/brokensignal-1.0.0.jar`.
+- [Architecture](docs/ARCHITECTURE.md)
+- [Event API](docs/EVENT_API.md)
+- [Meta safety model](docs/META_SAFETY.md)
+- [Development and build](docs/DEVELOPMENT.md)

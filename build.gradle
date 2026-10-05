@@ -1,0 +1,42 @@
+plugins {
+    id 'net.neoforged.moddev' version '2.0.148' apply false
+}
+
+allprojects {
+    group = 'dev.theunquiet'
+    version = '0.1.0'
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'net.neoforged.moddev'
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+        withSourcesJar()
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 21
+    }
+
+    neoForge {
+        version = rootProject.property('neo_version')
+        runs {
+            client {
+                client()
+            }
+            server {
+                server()
+                programArgument '--nogui'
+            }
+        }
+    }
+}

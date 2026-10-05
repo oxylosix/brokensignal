@@ -1,0 +1,11 @@
+dependencies {
+    implementation project(':horror-core')
+}
+
+neoForge {
+    mods {
+        theunquiet {
+            sourceSet sourceSets.main
+        }
+    }
+}

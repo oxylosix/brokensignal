@@ -1,45 +1,30 @@
 name: build
-on: [push, workflow_dispatch]
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          path: mod
-      - name: Get official NeoForge 1.21.1 MDK
-        run: git clone --depth 1 https://github.com/NeoForgeMDKs/MDK-1.21.1-ModDevGradle mdk
-      - name: Put mod sources into MDK
-        run: |
-          rm -rf mdk/src
-          cp -r mod/src mdk/src
-          while IFS='=' read -r key value; do
-            [ -z "$key" ] && continue
-            sed -i "s|^${key}=.*|${key}=${value}|" mdk/gradle.properties
-          done < mod/gradle.properties.mod
-          grep '^mod_' mdk/gradle.properties
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
-      - name: Build
-        working-directory: mdk
-        run: chmod +x gradlew && ./gradlew build --stacktrace
+      - name: Build both mods
+        run: chmod +x gradlew && ./gradlew clean build --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: brokensignal-jar
-          path: mdk/build/libs/*.jar
-      - name: Build companion
-        run: |
-          mkdir -p companion-out
-          javac --release 17 -encoding UTF-8 -d companion-out mod/companion/src/BrokenSignalCompanion.java
-          jar cfe BrokenSignalCompanion.jar BrokenSignalCompanion -C companion-out .
-      - uses: actions/upload-artifact@v4
-        with:
-          name: brokensignal-companion
+          name: the-unquiet-mods
           path: |
-            BrokenSignalCompanion.jar
-            mod/companion/README.md
-            mod/companion/PROTOCOL.md
-            mod/companion/run.bat
+            horror-core/build/libs/*.jar
+            the-unquiet/build/libs/*.jar
+          if-no-files-found: error

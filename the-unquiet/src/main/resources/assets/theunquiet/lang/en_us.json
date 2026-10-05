@@ -1,0 +1,10 @@
+{
+  "event.theunquiet.distant_knock": "A sound came from somewhere beyond the walls.",
+  "event.theunquiet.footsteps_behind": "For a moment, there was another set of footsteps.",
+  "event.theunquiet.village_stillness": "The village has gone quiet.",
+  "event.theunquiet.night_echo": "Something answered from the dark.",
+  "event.theunquiet.animal_watch": "The animal has been watching you.",
+  "event.theunquiet.ash_in_air": "A dark fleck drifted through the air.",
+  "command.theunquiet.status": "The world remembers %s anomalies.",
+  "command.theunquiet.meta_disabled": "External effects are disabled. Enable them explicitly in the client config."
+}
