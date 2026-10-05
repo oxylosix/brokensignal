@@ -26,5 +26,6 @@
   "setting.brokensignal.crt": "Scanlines",
   "setting.brokensignal.quiet": "Mute clicks",
   "toast.brokensignal.pc.title": "1 new message",
-  "toast.brokensignal.pc.body": "On the computer at home."
+  "toast.brokensignal.pc.body": "On the computer at home.",
+  "entity.brokensignal.mimic": "Player"
 }

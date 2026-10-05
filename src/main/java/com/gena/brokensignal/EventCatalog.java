@@ -197,6 +197,33 @@ public final class EventCatalog {
         pc("pc_notes_answer", ExtraEvents::pcNotesAnswer).manual();
         pc("pc_notes_line", ExtraEvents::pcNotesLine).phase(5).manual();
 
+        // ---------------------------------------------------------- v5: mimics (MIMIC FIRST, HORROR SECOND)
+        ev("mimic_friend", Cat.FIGURE, (p, c, f) -> com.gena.brokensignal.mimic.MimicDirector.startFriend(p, f))
+                .phase(2).weight(4).cooldown(70).rarity(Rarity.UNCOMMON).size(Size.MAJOR)
+                .when(c -> Config.MIMIC_ENABLED.get() && c.time != Time.MIDNIGHT);
+        ev("mimic_worker", Cat.FIGURE, (p, c, f) -> com.gena.brokensignal.mimic.MimicDirector.startWorker(p, f))
+                .phase(1).weight(5).cooldown(45).at(Place.FOREST, Place.OPEN, Place.CAVE)
+                .when(c -> Config.MIMIC_ENABLED.get());
+        ev("mimic_self", Cat.FIGURE, (p, c, f) -> com.gena.brokensignal.mimic.MimicDirector.startSelf(p, f))
+                .phase(4).weight(3).cooldown(120).rarity(Rarity.RARE).size(Size.MAJOR)
+                .when(c -> Config.MIMIC_ENABLED.get() && c.st.count("mimic_visits") >= 2);
+        ev("pet_turn", Cat.FIGURE, com.gena.brokensignal.mimic.Scenes::petTurn)
+                .phase(3).weight(3).cooldown(90).rarity(Rarity.RARE).when(c -> Config.MIMIC_ENABLED.get());
+        ev("herd_sync", Cat.FIGURE, com.gena.brokensignal.mimic.Scenes::herdSync)
+                .phase(2).weight(5).cooldown(40).at(Place.OPEN, Place.HOME, Place.VILLAGE);
+        ev("watches_house", Cat.FIGURE, com.gena.brokensignal.mimic.Scenes::watchesHouse)
+                .phase(2).weight(4).cooldown(60).when(c -> c.time == Time.DUSK || c.time == Time.DAY);
+        ev("villager_extra", Cat.FIGURE, com.gena.brokensignal.mimic.Scenes::villagerExtra)
+                .phase(3).weight(3).cooldown(90).at(Place.VILLAGE).rarity(Rarity.UNCOMMON).when(c -> Config.MIMIC_ENABLED.get());
+        ev("villager_knows", Cat.FIGURE, com.gena.brokensignal.mimic.Scenes::villagerKnows)
+                .phase(4).weight(3).cooldown(80).at(Place.VILLAGE);
+        // consequences: only scheduled by something that happened before, never random
+        ev("mimic_echo", Cat.WORLD, com.gena.brokensignal.ext.Echoes::mimicEcho).manual().edits();
+        ev("while_away", Cat.WORLD, com.gena.brokensignal.ext.Echoes::whileAway).manual();
+        ev("closed_door", Cat.WORLD, com.gena.brokensignal.ext.Echoes::closedDoor).manual();
+        ev("typed_back", Cat.WORLD, com.gena.brokensignal.ext.Echoes::typedBack).manual().edits();
+        ev("file_gone", Cat.WORLD, com.gena.brokensignal.ext.Echoes::fileGone).manual();
+
         // ---------------------------------------------------------- secrets (never explained in game)
         ev("s_self_join", Cat.SECRET, ExtraEvents::sSelfJoin).rarity(Rarity.SECRET).phase(6).weight(2).once();
         ev("s_revisit", Cat.SECRET, ExtraEvents::sRevisit).rarity(Rarity.SECRET).phase(4).weight(30).once().edits();

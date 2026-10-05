@@ -30,3 +30,16 @@ jobs:
         with:
           name: brokensignal-jar
           path: mdk/build/libs/*.jar
+      - name: Build companion
+        run: |
+          mkdir -p companion-out
+          javac --release 17 -encoding UTF-8 -d companion-out mod/companion/src/BrokenSignalCompanion.java
+          jar cfe BrokenSignalCompanion.jar BrokenSignalCompanion -C companion-out .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: brokensignal-companion
+          path: |
+            BrokenSignalCompanion.jar
+            mod/companion/README.md
+            mod/companion/PROTOCOL.md
+            mod/companion/run.bat

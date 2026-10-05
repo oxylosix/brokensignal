@@ -26,5 +26,6 @@
   "setting.brokensignal.crt": "Строки развёртки",
   "setting.brokensignal.quiet": "Без щелчков",
   "toast.brokensignal.pc.title": "1 новое сообщение",
-  "toast.brokensignal.pc.body": "На компьютере дома."
+  "toast.brokensignal.pc.body": "На компьютере дома.",
+  "entity.brokensignal.mimic": "Игрок"
 }

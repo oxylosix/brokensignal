@@ -45,6 +45,13 @@ public final class Config {
             .comment("Max block-changing events per in-game hour of play")
             .defineInRange("maxWorldChangesPerHour", 6, 0, 100);
 
+    public static final ModConfigSpec.BooleanValue MIMIC_ENABLED = BUILDER
+            .comment("Copies of players, of you and of animals/villagers")
+            .define("mimics", true);
+    public static final ModConfigSpec.DoubleValue MIMIC_BETRAYAL = BUILDER
+            .comment("Multiplier for the chance that a perfect copy attacks once (0 = never)")
+            .defineInRange("mimicBetrayal", 1.0, 0.0, 3.0);
+
     static {
         BUILDER.pop().push("presentation");
     }

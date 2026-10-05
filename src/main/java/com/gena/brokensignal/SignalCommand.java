@@ -71,6 +71,15 @@ public final class SignalCommand {
                                             + "]: " + (allowed ? "allowed now" : "blocked: " + why));
                                     return allowed ? 1 : 0;
                                 })))
+                .then(Commands.literal("mimic")
+                        .then(Commands.literal("friend").executes(c -> mimic(c.getSource(), "friend")))
+                        .then(Commands.literal("worker").executes(c -> mimic(c.getSource(), "worker")))
+                        .then(Commands.literal("self").executes(c -> mimic(c.getSource(), "self")))
+                        .then(Commands.literal("stop").executes(c -> mimic(c.getSource(), "stop")))
+                        .then(Commands.literal("info").executes(c -> mimic(c.getSource(), "info"))))
+                .then(Commands.literal("outside")
+                        .then(Commands.argument("cue", StringArgumentType.word())
+                                .executes(c -> outside(c.getSource(), StringArgumentType.getString(c, "cue")))))
                 .then(Commands.literal("list")
                         .executes(ctx -> {
                             Map<String, List<String>> byCat = new TreeMap<>();
@@ -182,5 +191,37 @@ public final class SignalCommand {
                                     ok(ctx, "Minutes = " + minutes + ", phase " + Director.phase(p));
                                     return 1;
                                 }))));
+    }
+
+    private static int mimic(net.minecraft.commands.CommandSourceStack src, String what) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        net.minecraft.server.level.ServerPlayer p = src.getPlayerOrException();
+        String err = switch (what) {
+            case "friend" -> com.gena.brokensignal.mimic.MimicDirector.startFriend(p, true);
+            case "worker" -> com.gena.brokensignal.mimic.MimicDirector.startWorker(p, true);
+            case "self" -> com.gena.brokensignal.mimic.MimicDirector.startSelf(p, true);
+            case "stop" -> {
+                com.gena.brokensignal.mimic.MimicDirector.stop(p);
+                yield null;
+            }
+            default -> {
+                src.sendSuccess(() -> net.minecraft.network.chat.Component.literal(
+                        com.gena.brokensignal.mimic.MimicDirector.describe(p)
+                                + " | similarity " + com.gena.brokensignal.mimic.Habits.similarity(p)
+                                + " | trade " + com.gena.brokensignal.mimic.Habits.trade(p)), false);
+                yield null;
+            }
+        };
+        if (err != null) {
+            src.sendFailure(net.minecraft.network.chat.Component.literal(err));
+            return 0;
+        }
+        return 1;
+    }
+
+    private static int outside(net.minecraft.commands.CommandSourceStack src, String cue) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        net.minecraft.server.level.ServerPlayer p = src.getPlayerOrException();
+        String err = com.gena.brokensignal.ext.Outside.send(p, cue, "test");
+        src.sendSuccess(() -> net.minecraft.network.chat.Component.literal(err == null ? "cue sent: " + cue : err), false);
+        return err == null ? 1 : 0;
     }
 }

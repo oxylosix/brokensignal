@@ -24,6 +24,8 @@ public final class BrokenSignal {
         modBus.addListener(BrokenSignal::onCreativeTabs);
         modBus.addListener(BrokenSignal::onPayloads);
         container.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        container.registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC);
+        NeoForge.EVENT_BUS.register(V5Hooks.class);
 
         NeoForge.EVENT_BUS.addListener(HorrorEvents::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(HorrorEvents::onLogout);
@@ -41,10 +43,13 @@ public final class BrokenSignal {
         registrar.playToClient(MetaPayload.TYPE, MetaPayload.STREAM_CODEC, MetaPayload::handle);
         registrar.playToClient(ComputerSyncPayload.TYPE, ComputerSyncPayload.STREAM_CODEC, ComputerSyncPayload::handle);
         registrar.playToServer(ComputerActionPayload.TYPE, ComputerActionPayload.STREAM_CODEC, ComputerService::handle);
+        registrar.playToServer(com.gena.brokensignal.ext.CompanionPayload.TYPE,
+                com.gena.brokensignal.ext.CompanionPayload.STREAM_CODEC, com.gena.brokensignal.ext.Outside::handle);
     }
 
     private static void onAttributes(EntityAttributeCreationEvent event) {
         event.put(ModRegistry.WATCHER.get(), WatcherEntity.createAttributes().build());
+        event.put(ModRegistry.MIMIC.get(), com.gena.brokensignal.mimic.MimicEntity.createAttributes().build());
     }
 
     private static void onCreativeTabs(BuildCreativeModeTabContentsEvent event) {

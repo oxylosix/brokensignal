@@ -110,6 +110,7 @@ public final class ClientMeta {
             }
             case "flicker" -> flicker = 3 + mc.player.getRandom().nextInt(3);
             case "hud" -> hudHidden = ticks(arg, 60);
+            case "ext" -> CompanionBridge.cue(arg);
             case "fog" -> {
                 fogTotal = ticks(arg, 400);
                 fogTicks = fogTotal;

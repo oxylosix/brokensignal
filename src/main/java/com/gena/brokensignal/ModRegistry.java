@@ -33,6 +33,12 @@ public final class ModRegistry {
                     .fireImmune()
                     .build("watcher"));
 
+    public static final DeferredHolder<EntityType<?>, EntityType<com.gena.brokensignal.mimic.MimicEntity>> MIMIC =
+            ENTITIES.register("mimic", () -> EntityType.Builder.of(com.gena.brokensignal.mimic.MimicEntity::new, MobCategory.MISC)
+                    .sized(0.6F, 1.8F)
+                    .clientTrackingRange(10)
+                    .build("mimic"));
+
     public static final DeferredItem<DeferredSpawnEggItem> WATCHER_EGG =
             ITEMS.register("watcher_spawn_egg",
                     () -> new DeferredSpawnEggItem(WATCHER, 0x050505, 0xEEEEEE, new Item.Properties()));
@@ -51,6 +57,7 @@ public final class ModRegistry {
     public static final DeferredHolder<SoundEvent, SoundEvent> DRONE = sound("drone");
     public static final DeferredHolder<SoundEvent, SoundEvent> STATIC_BURST = sound("static_burst");
     public static final DeferredHolder<SoundEvent, SoundEvent> KNOCK = sound("knock");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MIMIC_STINGER = sound("mimic_stinger");
 
     private ModRegistry() {}
 

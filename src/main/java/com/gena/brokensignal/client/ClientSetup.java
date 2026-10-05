@@ -14,5 +14,6 @@ public final class ClientSetup {
     @SubscribeEvent
     public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(ModRegistry.WATCHER.get(), WatcherRenderer::new);
+        event.registerEntityRenderer(ModRegistry.MIMIC.get(), MimicRenderer::new);
     }
 }
